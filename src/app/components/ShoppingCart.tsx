@@ -1,6 +1,7 @@
 'use client';
 
 import PixPayment from './PixPayment';
+import { useState } from 'react';
 
 interface Product {
   id: number;
@@ -27,6 +28,42 @@ interface ShoppingCartProps {
 }
 
 export default function ShoppingCart({ isOpen, onClose, cartItems, removeFromCart, updateQuantity, handleCheckout, showPayment, getTotal, handleSaveOrder }: ShoppingCartProps) {
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    nome: '',
+    telefone: '',
+    cep: '',
+    endereco: '',
+    numero: '',
+    bairro: '',
+    cidade: '',
+    estado: ''
+  });
+  const [formError, setFormError] = useState('');
+
+  function handleFormChange(e: any) {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  }
+
+  function validateForm() {
+    for (const key in form) {
+      if (!form[key as keyof typeof form]) {
+        setFormError('Preencha todos os campos para prosseguir.');
+        return false;
+      }
+    }
+    setFormError('');
+    return true;
+  }
+
+  function handleFormSubmit(e: any) {
+    e.preventDefault();
+    if (validateForm()) {
+      setShowForm(false);
+      handleCheckout();
+    }
+  }
+
   if (!isOpen) return null;
 
   return (
@@ -52,7 +89,25 @@ export default function ShoppingCart({ isOpen, onClose, cartItems, removeFromCar
               cartItems={cartItems}
               handleSaveOrder={handleSaveOrder}
               onPaymentComplete={onClose}
+              clienteData={form}
             />
+          ) : showForm ? (
+            <form onSubmit={handleFormSubmit} className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Dados para Entrega</h3>
+              <input name="nome" value={form.nome} onChange={handleFormChange} placeholder="Nome completo" className="w-full border rounded px-3 py-2 placeholder-gray-700 text-gray-900" />
+              <input name="telefone" value={form.telefone} onChange={handleFormChange} placeholder="Telefone" className="w-full border rounded px-3 py-2 placeholder-gray-700 text-gray-900" />
+              <input name="cep" value={form.cep} onChange={handleFormChange} placeholder="CEP" className="w-full border rounded px-3 py-2 placeholder-gray-700 text-gray-900" />
+              <input name="endereco" value={form.endereco} onChange={handleFormChange} placeholder="Endereço" className="w-full border rounded px-3 py-2 placeholder-gray-700 text-gray-900" />
+              <input name="numero" value={form.numero} onChange={handleFormChange} placeholder="Número" className="w-full border rounded px-3 py-2 placeholder-gray-700 text-gray-900" />
+              <input name="bairro" value={form.bairro} onChange={handleFormChange} placeholder="Bairro" className="w-full border rounded px-3 py-2 placeholder-gray-700 text-gray-900" />
+              <input name="cidade" value={form.cidade} onChange={handleFormChange} placeholder="Cidade" className="w-full border rounded px-3 py-2 placeholder-gray-700 text-gray-900" />
+              <input name="estado" value={form.estado} onChange={handleFormChange} placeholder="Estado" className="w-full border rounded px-3 py-2 placeholder-gray-700 text-gray-900" />
+              {formError && <div className="text-red-600 text-sm">{formError}</div>}
+              <div className="flex gap-2 mt-2">
+                <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded font-semibold hover:bg-green-600 transition-colors">Prosseguir para Pagamento</button>
+                <button type="button" onClick={() => setShowForm(false)} className="bg-gray-500 text-white px-4 py-2 rounded font-semibold hover:bg-gray-600 transition-colors">Cancelar</button>
+              </div>
+            </form>
           ) : (
             <>
               {cartItems.length === 0 ? (
@@ -117,7 +172,7 @@ export default function ShoppingCart({ isOpen, onClose, cartItems, removeFromCar
                       </span>
                     </div>
                     <button
-                      onClick={handleCheckout}
+                      onClick={() => setShowForm(true)}
                       className="w-full bg-green-500 text-white py-3 rounded-full font-semibold hover:bg-green-600 transition-colors"
                     >
                       Finalizar Compra

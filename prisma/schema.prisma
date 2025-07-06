@@ -20,6 +20,15 @@ model Pedido {
   total     Float
   produtos  Json
   status    String
+  nome      String?
+  telefone  String?
+  cep       String?
+  endereco  String?
+  numero    String?
+  bairro    String?
+  cidade    String?
+  estado    String?
+  token     String?   // Token de segurança para acesso do cliente (agora opcional)
 }
 
 model Produto {

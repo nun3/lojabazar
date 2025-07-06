@@ -60,7 +60,7 @@ const featuredProducts = [
   }
 ];
 
-function FeaturedCarousel({ featuredProducts, onBuy, getProductQuantity, updateQuantity }: { featuredProducts: any[], onBuy: (product: any) => void, getProductQuantity: (id: number) => number, updateQuantity: (id: number, q: number) => void }) {
+function FeaturedCarousel({ featuredProducts, onBuy, getProductQuantity, updateQuantity, setIsCartOpen }: { featuredProducts: any[], onBuy: (product: any) => void, getProductQuantity: (id: number) => number, updateQuantity: (id: number, q: number) => void, setIsCartOpen: (open: boolean) => void }) {
   const [index, setIndex] = useState(0);
   const total = featuredProducts.length;
   const prev = () => setIndex((i) => (i - 1 + total) % total);
@@ -106,19 +106,39 @@ function FeaturedCarousel({ featuredProducts, onBuy, getProductQuantity, updateQ
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 </button>
+                <button
+                  onClick={() => setIsCartOpen(true)}
+                  className="ml-2 p-2 rounded-full bg-pink-100 hover:bg-pink-200 transition-colors"
+                  title="Ir para o Carrinho"
+                >
+                  <svg className="w-6 h-6 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 2.7A2 2 0 007.6 19h8.8a2 2 0 001.95-1.7L21 13M7 13V6a1 1 0 011-1h5a1 1 0 011 1v7" />
+                  </svg>
+                </button>
               </>
             ) : (
-              <button
-                onClick={() => onBuy(product)}
-                disabled={product.estoque <= 0}
-                className={`px-8 py-3 rounded-full font-semibold transition-all duration-200 ${
-                  product.estoque <= 0
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:shadow-lg transform hover:scale-105'
-                }`}
-              >
-                {product.estoque <= 0 ? 'Sem Estoque' : 'Comprar'}
-              </button>
+              <>
+                <button
+                  onClick={() => onBuy(product)}
+                  disabled={product.estoque <= 0}
+                  className={`px-8 py-3 rounded-full font-semibold transition-all duration-200 ${
+                    product.estoque <= 0
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:shadow-lg transform hover:scale-105'
+                  }`}
+                >
+                  {product.estoque <= 0 ? 'Sem Estoque' : 'Comprar'}
+                </button>
+                <button
+                  onClick={() => setIsCartOpen(true)}
+                  className="ml-2 p-2 rounded-full bg-pink-100 hover:bg-pink-200 transition-colors"
+                  title="Ir para o Carrinho"
+                >
+                  <svg className="w-6 h-6 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 2.7A2 2 0 007.6 19h8.8a2 2 0 001.95-1.7L21 13M7 13V6a1 1 0 011-1h5a1 1 0 011 1v7" />
+                  </svg>
+                </button>
+              </>
             )}
           </div>
           <div className="flex justify-between w-full absolute top-1/2 left-0 px-4 -translate-y-1/2">
@@ -150,6 +170,18 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [userOrders, setUserOrders] = useState<any[]>([]);
   const [showOrders, setShowOrders] = useState(false);
+
+  // Garante que todos os itens do carrinho tenham quantity definido ao carregar do localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('cartItems');
+    if (stored) {
+      const parsed = JSON.parse(stored).map((item: any) => ({
+        ...item,
+        quantity: typeof item.quantity === 'number' ? item.quantity : 1
+      }));
+      setCartItems(parsed);
+    }
+  }, []);
 
   // Carregar produtos da API
   useEffect(() => {
@@ -291,13 +323,14 @@ export default function Home() {
     setCartItems(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.estoque) {
+        const currentQuantity = existing.quantity || 0;
+        if (currentQuantity >= product.estoque) {
           setToast(`Quantidade máxima de "${product.name}" já está no carrinho!`);
           return prev;
         }
         setToast(`Quantidade de "${product.name}" aumentada no carrinho!`);
         return prev.map(item =>
-          item.id === product.id ? { ...item, quantity: (item.quantity || 1) + 1 } : item
+          item.id === product.id ? { ...item, quantity: currentQuantity + 1 } : item
         );
       }
       setToast(`"${product.name}" adicionado ao carrinho!`);
@@ -355,7 +388,7 @@ export default function Home() {
   // Função para pegar a quantidade de um produto no carrinho
   const getProductQuantity = (productId: number) => {
     const item = cartItems.find(i => i.id === productId);
-    return item ? item.quantity : 0;
+    return item ? (item.quantity || 0) : 0;
   };
 
   // Salvar novo pedido no histórico
@@ -385,6 +418,7 @@ export default function Home() {
                 <a href="#produtos" className="text-gray-600 hover:text-pink-500 transition-colors">Produtos</a>
                 <a href="#contato" className="text-gray-600 hover:text-pink-500 transition-colors">Contato</a>
                 <a href="/admin" className="text-purple-600 hover:text-purple-800 font-semibold transition-colors">Área do Admin</a>
+                <a href="/acompanhar-pedido" className="text-gray-600 hover:text-pink-500 transition-colors">Acompanhar Pedido</a>
               </div>
               <button
                 onClick={() => setIsCartOpen(true)}
@@ -475,71 +509,99 @@ export default function Home() {
           {loading ? (
             <div className="text-center text-gray-500">Carregando produtos...</div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {products.map((product) => {
-                const quantity = getProductQuantity(product.id);
-                return (
-                  <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
-                    <div className="h-64 bg-gradient-to-br from-pink-200 to-purple-200 flex items-center justify-center">
-                      <span className="text-gray-500 text-lg">{product.name}</span>
-                    </div>
-                    <div className="p-6">
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">{product.name}</h3>
-                      <p className="text-gray-600 mb-4">{product.description}</p>
-                      <div className="mb-3">
-                        <span className="text-2xl font-bold text-pink-500">{(product.price / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                        <div className="text-sm text-gray-500 mt-1">
-                          Estoque: {product.estoque} unidades
+            <>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {products.map((product) => {
+                  const quantity = getProductQuantity(product.id);
+                  return (
+                    <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
+                      <div className="h-64 bg-gradient-to-br from-pink-200 to-purple-200 flex items-center justify-center">
+                        <span className="text-gray-500 text-lg">{product.name}</span>
+                      </div>
+                      <div className="p-6">
+                        <h3 className="text-xl font-semibold text-gray-800 mb-2">{product.name}</h3>
+                        <p className="text-gray-600 mb-4">{product.description}</p>
+                        <div className="mb-3">
+                          <span className="text-2xl font-bold text-pink-500">{(product.price / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                          <div className="text-sm text-gray-500 mt-1">
+                            Estoque: {product.estoque} unidades
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          {product.estoque <= 0 ? (
+                            <span className="text-red-500 font-semibold">Sem Estoque</span>
+                          ) : quantity > 0 ? (
+                            <div className="flex space-x-2 items-center">
+                              <button
+                                onClick={() => updateQuantity(product.id, quantity - 1)}
+                                className="w-8 h-8 bg-pink-400 text-white rounded-full flex items-center justify-center hover:bg-pink-600 transition-colors"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                                </svg>
+                              </button>
+                              <span className="w-8 text-center font-bold text-purple-600">{quantity}</span>
+                              <button
+                                onClick={() => updateQuantity(product.id, quantity + 1)}
+                                disabled={quantity >= product.estoque}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                                  quantity >= product.estoque 
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                    : 'bg-purple-500 text-white hover:bg-purple-700'
+                                }`}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => setIsCartOpen(true)}
+                                className="ml-2 p-2 rounded-full bg-pink-100 hover:bg-pink-200 transition-colors"
+                                title="Ir para o Carrinho"
+                              >
+                                <svg className="w-6 h-6 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 2.7A2 2 0 007.6 19h8.8a2 2 0 001.95-1.7L21 13M7 13V6a1 1 0 011-1h5a1 1 0 011 1v7" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => addToCart(product)}
+                                className="bg-purple-500 text-white px-4 py-2 rounded-full hover:bg-purple-600 transition-colors"
+                              >
+                                Adicionar
+                              </button>
+                              <button
+                                onClick={() => setIsCartOpen(true)}
+                                className="ml-2 p-2 rounded-full bg-pink-100 hover:bg-pink-200 transition-colors"
+                                title="Ir para o Carrinho"
+                              >
+                                <svg className="w-6 h-6 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.35 2.7A2 2 0 007.6 19h8.8a2 2 0 001.95-1.7L21 13M7 13V6a1 1 0 011-1h5a1 1 0 011 1v7" />
+                                </svg>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <div className="flex justify-between items-center">
-                        {product.estoque <= 0 ? (
-                          <span className="text-red-500 font-semibold">Sem Estoque</span>
-                        ) : quantity > 0 ? (
-                          <div className="flex space-x-2 items-center">
-                            <button
-                              onClick={() => updateQuantity(product.id, quantity - 1)}
-                              className="w-8 h-8 bg-pink-400 text-white rounded-full flex items-center justify-center hover:bg-pink-600 transition-colors"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                              </svg>
-                            </button>
-                            <span className="w-8 text-center font-bold text-purple-600">{quantity}</span>
-                            <button
-                              onClick={() => updateQuantity(product.id, quantity + 1)}
-                              disabled={quantity >= product.estoque}
-                              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                                quantity >= product.estoque 
-                                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                  : 'bg-purple-500 text-white hover:bg-purple-700'
-                              }`}
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                              </svg>
-                            </button>
-                          </div>
-                        ) : (
-                          <button 
-                            onClick={() => addToCart(product)}
-                            className="bg-purple-500 text-white px-4 py-2 rounded-full hover:bg-purple-600 transition-colors"
-                          >
-                            Adicionar
-                          </button>
-                        )}
-                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </section>
 
       {/* Carrossel de Destaques */}
-      <FeaturedCarousel featuredProducts={featuredProducts} onBuy={addToCart} getProductQuantity={getProductQuantity} updateQuantity={updateQuantity} />
+      <FeaturedCarousel
+        featuredProducts={featuredProducts}
+        onBuy={addToCart}
+        getProductQuantity={getProductQuantity}
+        updateQuantity={updateQuantity}
+        setIsCartOpen={setIsCartOpen}
+      />
 
       {/* Contact Section */}
       <section id="contato" className="py-16 bg-white">
@@ -622,7 +684,7 @@ export default function Home() {
       <ShoppingCart
         isOpen={isCartOpen}
         onClose={handlePaymentComplete}
-        cartItems={cartItems}
+        cartItems={cartItems.map(item => ({ ...item, quantity: item.quantity || 1 }))}
         removeFromCart={removeFromCart}
         updateQuantity={updateQuantity}
         handleCheckout={handleCheckout}
@@ -650,7 +712,7 @@ export default function Home() {
               <PixPayment
                 amount={selectedProduct.price}
                 productName={selectedProduct.name}
-                cartItems={cartItems.map(item => ({ name: item.name, quantity: item.quantity || 1, price: item.price }))}
+                cartItems={cartItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity || 1, price: item.price }))}
               />
             </div>
           </div>
@@ -692,6 +754,12 @@ export default function Home() {
                 {userOrders.map((order, idx) => (
                   <div key={idx} className="border rounded-lg p-4 bg-gray-50">
                     <div className="font-bold text-gray-700 mb-1">Pedido: <span className="text-gray-900">{order.orderId || '-'}</span></div>
+                    {order.token && (
+                      <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                        <div className="text-sm font-semibold text-yellow-800 mb-1">Token de Segurança: <span className="text-yellow-900 font-mono">{order.token}</span></div>
+                        <div className="text-xs text-yellow-700">Use este token para acompanhar seu pedido</div>
+                      </div>
+                    )}
                     <div className="text-gray-700 mb-1">Data: <span className="text-gray-900">{order.paidAt || '-'}</span></div>
                     <div className="text-gray-700 mb-1">Chave PIX: <span className="text-gray-900">{order.pixKey || '-'}</span></div>
                     <div className="text-gray-700 mb-1">Status: <span className={

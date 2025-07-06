@@ -10,9 +10,19 @@ interface PixPaymentProps {
   cartItems?: { id: number; name: string; quantity: number; price: number }[];
   handleSaveOrder?: (order: any) => void;
   onPaymentComplete?: () => void;
+  clienteData?: {
+    nome: string;
+    telefone: string;
+    cep: string;
+    endereco: string;
+    numero: string;
+    bairro: string;
+    cidade: string;
+    estado: string;
+  };
 }
 
-export default function PixPayment({ amount, productName, cartItems, handleSaveOrder, onPaymentComplete }: PixPaymentProps) {
+export default function PixPayment({ amount, productName, cartItems, handleSaveOrder, onPaymentComplete, clienteData }: PixPaymentProps) {
   const [showQRCode, setShowQRCode] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'completed' | 'failed'>('pending');
   const [pixKey, setPixKey] = useState('');
@@ -20,9 +30,11 @@ export default function PixPayment({ amount, productName, cartItems, handleSaveO
   const [orderId, setOrderId] = useState<string | null>(null);
   const [paidAt, setPaidAt] = useState<string | null>(null);
   const [pedidoSalvo, setPedidoSalvo] = useState(false);
+  const [pedidoToken, setPedidoToken] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setOrderId(`#${Math.floor(1000 + Math.random() * 9000)}`);
+    setMounted(true);
   }, []);
 
   // Gerar chave PIX do banco para o QR Code
@@ -124,6 +136,10 @@ export default function PixPayment({ amount, productName, cartItems, handleSaveO
     setPixPayload(generatePixData(key));
     setShowQRCode(true);
     setPaymentStatus('pending');
+    // Gerar orderId apenas quando necessário
+    if (!orderId) {
+      setOrderId(`#${Math.floor(1000 + Math.random() * 9000)}`);
+    }
   };
 
   const handleSimulatePayment = async () => {
@@ -144,10 +160,14 @@ export default function PixPayment({ amount, productName, cartItems, handleSaveO
                 total: amount,
                 produtos: cartItems && cartItems.length > 0 ? cartItems : [{ name: productName, quantity: 1, price: amount }],
                 status: 'aprovado',
+                ...clienteData
               })
             });
 
             if (pedidoResponse.ok) {
+              const pedidoData = await pedidoResponse.json();
+              setPedidoToken(pedidoData.token);
+              
               // Atualizar estoque dos produtos vendidos
               if (cartItems && cartItems.length > 0) {
                 const estoqueResponse = await fetch('/api/produtos/atualizar-estoque', {
@@ -173,7 +193,8 @@ export default function PixPayment({ amount, productName, cartItems, handleSaveO
                   pixKey,
                   cartItems,
                   productName,
-                  amount
+                  amount,
+                  token: pedidoData.token
                 });
               }
             }
@@ -198,6 +219,9 @@ export default function PixPayment({ amount, productName, cartItems, handleSaveO
   function getWhatsappMessage() {
     let msg = `*Novo pedido recebido!*%0A`;
     msg += `*Pedido:* ${orderId}%0A`;
+    if (pedidoToken) {
+      msg += `*Token de Segurança:* ${pedidoToken}%0A`;
+    }
     msg += `*Data:* ${paidAt}%0A`;
     msg += `*Chave PIX:* ${pixKey}%0A`;
     msg += `*Produtos:*%0A`;
@@ -222,6 +246,14 @@ export default function PixPayment({ amount, productName, cartItems, handleSaveO
     doc.setFontSize(12);
     doc.text(`Pedido: ${orderId}`, 15, y);
     y += 8;
+    if (pedidoToken) {
+      doc.text(`Token de Segurança: ${pedidoToken}`, 15, y);
+      y += 8;
+      doc.setFontSize(10);
+      doc.text('Guarde este token para acompanhar seu pedido', 15, y);
+      y += 8;
+      doc.setFontSize(12);
+    }
     doc.text(`Data: ${paidAt || '-'}`, 15, y);
     y += 8;
     doc.text(`Chave PIX: ${pixKey}`, 15, y);
@@ -238,14 +270,23 @@ export default function PixPayment({ amount, productName, cartItems, handleSaveO
       y += 7;
     }
     y += 2;
-    doc.setFont(undefined, 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.text(`Total: R$ ${amount.toFixed(2)}`, 15, y);
     doc.save(`comprovante-pedido-${orderId}.pdf`);
   };
 
   return (
     <div className="bg-white rounded-lg p-8 max-w-md mx-auto">
-      {!showQRCode ? (
+      {!mounted ? (
+        <div className="text-center">
+          <div className="animate-pulse">
+            <div className="h-6 bg-gray-200 rounded mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded mb-6"></div>
+            <div className="h-12 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      ) : !showQRCode ? (
         <div className="text-center">
           <h3 className="text-xl font-semibold text-gray-800 mb-4">
             Pagamento via PIX
@@ -277,6 +318,7 @@ export default function PixPayment({ amount, productName, cartItems, handleSaveO
                     size={200}
                     level="M"
                     className="mx-auto"
+                    title="QR Code PIX"
                   />
                 )}
               </div>
@@ -327,6 +369,12 @@ export default function PixPayment({ amount, productName, cartItems, handleSaveO
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 text-left text-sm">
                 <div className="mb-2 font-bold text-gray-800">Comprovante do Pedido</div>
                 <div className="mb-1"><span className="font-semibold text-gray-700">Pedido:</span> <span className="text-gray-900">{orderId}</span></div>
+                {pedidoToken && (
+                  <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                    <div className="mb-1"><span className="font-semibold text-yellow-800">Token de Segurança:</span> <span className="text-yellow-900 font-mono">{pedidoToken}</span></div>
+                    <div className="text-xs text-yellow-700">Guarde este token para acompanhar seu pedido</div>
+                  </div>
+                )}
                 <div className="mb-1"><span className="font-semibold text-gray-700">Data:</span> <span className="text-gray-900">{paidAt}</span></div>
                 <div className="mb-1"><span className="font-semibold text-gray-700">Chave PIX:</span> <span className="text-gray-900">{pixKey}</span></div>
                 <div className="mb-2"><span className="font-semibold text-gray-700">Produtos:</span></div>
@@ -344,12 +392,6 @@ export default function PixPayment({ amount, productName, cartItems, handleSaveO
                 <div className="font-bold text-right text-green-700">Total: {(amount / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</div>
               </div>
               <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => window.open(`https://wa.me/5541991526177?text=${getWhatsappMessage()}`, '_blank')}
-                  className="bg-green-500 text-white px-6 py-3 rounded-full font-semibold hover:bg-green-600 transition-colors"
-                >
-                  Enviar pedido para o WhatsApp do vendedor
-                </button>
                 <button 
                   onClick={handleDownloadPDF}
                   className="bg-blue-500 text-white px-6 py-3 rounded-full font-semibold hover:bg-blue-600 transition-colors"
